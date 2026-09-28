@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>コスパ比較ツール</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background-color: #f0f4f8; max-width: 600px; margin: 0 auto; }
+    h2 { color: #333; text-align: center; }
+    
+    .form-card { background-color: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
+    .form-group { margin-bottom: 15px; }
+    label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 14px; color: #555; }
+    input[type="text"], input[type="number"] { width: 100%; padding: 10px; box-sizing: border-box; font-size: 16px; border: 1px solid #ccc; border-radius: 6px; }
+    
+    .flex-row { display: flex; gap: 10px; align-items: flex-end; }
+    .flex-row .form-group { flex-grow: 1; margin-bottom: 0; }
+    .multiply-mark { font-weight: bold; color: #888; padding-bottom: 10px; }
+    
+    .add-btn { background-color: #4CAF50; color: white; border: none; border-radius: 8px; padding: 12px; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; margin-top: 15px; }
+    .add-btn:hover { background-color: #45a049; }
+
+    .result-card { background-color: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid #ccc; position: relative; }
+    .cheapest { border-left: 5px solid #ffd700; background-color: #fffde7; }
+    .cheapest::before { content: "👑 最安"; position: absolute; top: -10px; right: -10px; background-color: #f44336; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+    
+    .item-name { font-size: 16px; font-weight: bold; color: #333; margin-bottom: 5px; }
+    .item-details { font-size: 13px; color: #666; }
+    .unit-price { font-size: 20px; font-weight: bold; color: #e91e63; text-align: right; }
+    .unit-label { font-size: 12px; color: #888; font-weight: normal; }
+    
+    .delete-btn { background-color: transparent; color: #999; border: none; font-size: 20px; cursor: pointer; padding: 0 5px; }
+    .reset-btn { background-color: #9e9e9e; color: white; border: none; border-radius: 8px; padding: 10px; cursor: pointer; width: 100%; font-size: 14px; font-weight: bold; margin-top: 10px; }
+  </style>
+</head>
+<body>
+
+  <h2>⚖️ コスパ比較計算</h2>
+
+  <div class="form-card">
+    <form id="calc-form">
+      <div class="form-group">
+        <label for="itemName">商品名（任意）</label>
+        <input type="text" id="itemName" placeholder="例：A社の洗剤 詰め替え用">
+      </div>
+      
+      <div class="form-group">
+        <label for="price">価格（円）</label>
+        <input type="number" id="price" placeholder="例：498" required min="1">
+      </div>
+
+      <div class="flex-row">
+        <div class="form-group">
+          <label for="weight">グラム・ml</label>
+          <input type="number" id="weight" placeholder="例：400" min="0.1" step="0.1">
+        </div>
+        <div class="multiply-mark">✖</div>
+        <div class="form-group">
+          <label for="quantity">個数</label>
+          <input type="number" id="quantity" placeholder="例：3" min="1" step="1">
+        </div>
+      </div>
+      
+      <button type="submit" class="add-btn">＋ 比較リストに追加</button>
+    </form>
+  </div>
+
+  <div id="results-container"></div>
+  
+  <button class="reset-btn" onclick="clearAll()" id="clear-btn" style="display: none;">🗑️ すべてリセット</button>
+
+  <script>
+    let items = [];
+
+    document.getElementById('calc-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      const nameInput = document.getElementById('itemName').value;
+      const price = parseFloat(document.getElementById('price').value);
+      const weightStr = document.getElementById('weight').value;
+      const quantityStr = document.getElementById('quantity').value;
+      
+      // どちらも未入力の場合はアラートを出す
+      if (!weightStr && !quantityStr) {
+        alert("「グラム・ml」か「個数」のどちらかを入力してください！");
+        return;
+      }
+
+      // 入力がない方は「1」として扱い、両方あれば掛け算する
+      const weight = weightStr ? parseFloat(weightStr) : 1;
+      const quantity = quantityStr ? parseFloat(quantityStr) : 1;
+      const totalAmount = weight * quantity;
+      
+      const unitPrice = price / totalAmount;
+      
+      // 結果一覧に表示する補足テキストの作成
+      let detailText = "";
+      if (weightStr && quantityStr) {
+        detailText = `${price}円 / ${weightStr}(g/ml) × ${quantityStr}個 = 計${totalAmount}`;
+      } else if (weightStr) {
+        detailText = `${price}円 / ${weightStr}(g/ml)`;
+      } else {
+        detailText = `${price}円 / ${quantityStr}個`;
+      }
+      
+      items.push({
+        id: Date.now(),
+        name: nameInput || `商品 ${items.length + 1}`,
+        price: price,
+        detailText: detailText,
+        unitPrice: unitPrice
+      });
+      
+      // フォームのリセット
+      document.getElementById('itemName').value = '';
+      document.getElementById('price').value = '';
+      document.getElementById('weight').value = '';
+      document.getElementById('quantity').value = '';
+      document.getElementById('price').focus();
+      
+      renderItems();
+    });
+
+    function renderItems() {
+      const container = document.getElementById('results-container');
+      const clearBtn = document.getElementById('clear-btn');
+      container.innerHTML = '';
+      
+      if (items.length === 0) {
+        clearBtn.style.display = 'none';
+        return;
+      }
+      
+      clearBtn.style.display = 'block';
+      items.sort((a, b) => a.unitPrice - b.unitPrice);
+
+      items.forEach((item, index) => {
+        const isCheapest = index === 0 && items.length > 1; 
+        const cardClass = isCheapest ? 'result-card cheapest' : 'result-card';
+        const displayUnitPrice = item.unitPrice.toFixed(2);
+
+        const card = document.createElement('div');
+        card.className = cardClass;
+        card.innerHTML = `
+          <div>
+            <div class="item-name">${item.name}</div>
+            <div class="item-details">${item.detailText}</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 15px;">
+            <div class="unit-price">${displayUnitPrice} <span class="unit-label">円/単位</span></div>
+            <button class="delete-btn" onclick="removeItem(${item.id})">×</button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function removeItem(id) {
+      items = items.filter(item => item.id !== id);
+      renderItems();
+    }
+
+    function clearAll() {
+      items = [];
+      renderItems();
+    }
+  </script>
+</body>
+</html>
